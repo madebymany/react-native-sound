@@ -11,19 +11,24 @@ import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.LifecycleEventListener;
 
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
-public class RNSoundModule extends ReactContextBaseJavaModule {
+public class RNSoundModule extends ReactContextBaseJavaModule implements LifecycleEventListener {
   Map<Integer, MediaPlayer> playerPool = new HashMap<>();
+  Set<MediaPlayer> pausedPlayers = new HashSet<>();
   ReactApplicationContext context;
   final static Object NULL = null;
 
   public RNSoundModule(ReactApplicationContext context) {
     super(context);
     this.context = context;
+    context.addLifecycleEventListener(this);
   }
 
   @Override
@@ -161,5 +166,39 @@ public class RNSoundModule extends ReactContextBaseJavaModule {
     final Map<String, Object> constants = new HashMap<>();
     constants.put("IsAndroid", true);
     return constants;
+  }
+
+  // Activity lifecycle
+
+  public void onHostPause() {
+    this.pauseAllPlaying();
+  }
+
+  public void onHostDestroy() {
+    this.pauseAllPlaying();
+  }
+
+  public void onHostResume() {
+    this.resumeAllPaused();
+  }
+
+  // Acitivity lifecycle helpers
+
+  protected void pauseAllPlaying() {
+    this.pausedPlayers.clear();
+    for (Map.Entry<Integer, MediaPlayer> entry : this.playerPool.entrySet()) {
+      MediaPlayer player = entry.getValue();
+      if (player.isPlaying()) {
+        this.pausedPlayers.add(player);
+        player.pause();
+      }
+    }
+  }
+
+  protected void resumeAllPaused() {
+    for (MediaPlayer player : this.pausedPlayers) {
+      player.start();
+    }
+    this.pausedPlayers.clear();
   }
 }
